@@ -1,0 +1,271 @@
+Build a complete, production-ready full-stack website called **SV Scrims** with the following exact requirements.
+
+==================================================
+🔵 TECHNOLOGY STACK (STRICT)
+==================================================
+Frontend: React + Vite + TailwindCSS  
+Backend: Node.js + Express.js  
+Database: MongoDB (NO mock database)  
+Auth: Real JWT Authentication (NO Firebase, NO Auth0, NO mocks)  
+Realtime: Socket.IO  
+Security: bcrypt, helmet, express-rate-limit, CORS, sanitization  
+Payments: UPI QR + UPI ID + optional auto-verification API  
+File Uploads: Multer  
+Run Environment: Must run locally on my VS Code  
+Deployment Ready: folder structure + scripts ready
+
+==================================================
+🔵 ABSOLUTE RULES (VERY IMPORTANT)
+==================================================
+1. DO NOT use any mock database or mock authentication.  
+2. Use only REAL MongoDB models & schemas.  
+3. Use JWT-based login & access control.  
+4. Admin can ONLY log in with email: **sauravans21@gmail.com** and a password I will insert in .env.  
+5. Everything must work locally using Node.js + MongoDB.  
+6. Provide complete working code for ALL files (no skipping).  
+7. If output is long, continue without summarizing.  
+8. Include ALL required .env variables.
+
+==================================================
+🔵 CORE FEATURES TO BUILD
+==================================================
+
+==================================================
+1) AUTHENTICATION SYSTEM
+==================================================
+- Player signup, login, logout  
+- Forgot password endpoint  
+- JWT authentication  
+- Password hashing using bcrypt  
+- Protect all private routes  
+- Admin login ONLY allowed if email === "sauravans21@gmail.com"  
+- Every player gets an in-website unique player ID  
+
+MongoDB User Fields:
+- username  
+- email  
+- password  
+- mobile  
+- playerId (auto generated)  
+- stats (kills, wins, matches, avg survival time)  
+- walletBalance  
+- role: "player" | "admin"  
+- banned: boolean  
+
+==================================================
+2) SCRIMS & TOURNAMENT SYSTEM
+==================================================
+Admin can create:
+- Paid scrims  
+- Free scrims  
+- Tournaments  
+
+Scrim Fields:
+- matchType  
+- map  
+- entryFee  
+- prizePool  
+- date  
+- time  
+- maxPlayers  
+- spotsRemaining  
+- registeredPlayers[]  
+
+Automatic behaviour:
+- When player registers, reduce spotsRemaining  
+- Prevent overbooking  
+- Player cannot join twice  
+
+==================================================
+3) ROOM ID & PASSWORD RELEASE SYSTEM
+==================================================
+Admin dashboard:
+- Can post Room ID + Password for any scrim  
+- It becomes visible to registered players **only 10 minutes before match time**
+
+==================================================
+4) PLAYER DASHBOARD
+==================================================
+Show:
+- Total matches joined  
+- Matches won  
+- Prize money earned  
+- Wallet balance  
+- Transaction history  
+- Scrims joined list  
+- Stats (kills / position points / avg survival)  
+
+Wallet Features:
+- Add money request (manual admin approval)  
+- Withdraw request (manual admin approval)
+
+==================================================
+5) WALLET & TRANSACTIONS SYSTEM
+==================================================
+ALL stored in MongoDB.
+
+Transaction fields:
+- userId  
+- type: "add" | "withdraw" | "entryFee" | "prize"  
+- amount  
+- utr  
+- screenshotURL  
+- paymentStatus: pending/verified/rejected  
+- timestamp  
+
+Admin Panel:
+- Approve or reject add/withdraw requests  
+- Update wallet balances  
+
+==================================================
+6) UPI QR + UTR PAYMENT SYSTEM
+==================================================
+When player clicks **Register & Pay**:
+
+Frontend modal must show:
+- UPI ID (I will insert later)  
+- UPI QR scanner image (I will provide)  
+- Entry fee amount  
+- “Copy UPI ID” button  
+- Screenshot upload OR UTR input  
+
+Backend Routes:
+POST /api/payment/initiate  
+POST /api/payment/verify  
+POST /api/payment/confirm  
+
+AUTO-VERIFICATION LOGIC:
+- If user enters UTR, backend tries verifying using ANY available free/beta UPI verification API  
+- Check:  
+   ✔ UTR valid  
+   ✔ Amount matches  
+   ✔ Receiver UPI = mine  
+   ✔ Status = SUCCESS  
+- If no free API works, fallback to:  
+   → Mark transaction as pending  
+   → Admin verifies manually from dashboard  
+
+Admin must see:
+- Screenshot  
+- UTR  
+- Player name  
+- Scrim joined  
+- Verify / Reject buttons  
+
+==================================================
+7) FIND TEAMMATES SYSTEM
+==================================================
+Players can create team finder posts.
+
+Fields:
+- name  
+- age  
+- rank  
+- device  
+- KD  
+- preferred playstyle  
+- mic: yes/no  
+
+Inside each post → **Real-time chatbox** using Socket.IO.
+
+Chat Features:
+- Bad word filtering (block abusive words)  
+- Report message button  
+- Admin can ban user  
+
+==================================================
+8) ADMIN PANEL (FULL CONTROL)
+==================================================
+Admin can:
+- Create scrims  
+- Create tournaments  
+- Approve/reject payments  
+- Manage wallet requests  
+- Post room ID & password  
+- View all players  
+- Ban players  
+- Delete/find chats  
+- Manage team finder posts  
+- Edit website content  
+- See payment logs  
+
+==================================================
+9) LEADERBOARDS
+==================================================
+3 leaderboards:
+- Daily  
+- Weekly  
+- Monthly  
+
+Leaderboard stats:
+- Kills  
+- Wins  
+- Average survival time  
+- Position points  
+
+==================================================
+10) STREAMING/SPECTATOR LINKS
+==================================================
+Admin can add:
+- YouTube stream link for each match  
+- Spectator link  
+
+Must appear in scrim details page.
+
+==================================================
+11) LEGAL PAGES (STATIC)
+==================================================
+Generate clean Tailwind pages for:
+- Terms & Conditions  
+- Refund Policy  
+- Privacy Policy  
+- Anti-cheat rules  
+- Disclaimer (Not affiliated with Krafton)
+
+==================================================
+12) MOBILE-FIRST UI (CRITICAL)
+==================================================
+90%+ users will use mobile.  
+Site must be:
+- Mobile-first  
+- Fast  
+- Clean UI  
+- One-handed friendly  
+
+==================================================
+13) SECURITY REQUIREMENTS
+==================================================
+- JWT tokens (httpOnly optional)  
+- bcrypt passwords  
+- helmet middleware  
+- XSS sanitization  
+- SQL/NoSQL injection prevention  
+- Rate limit login  
+- Validate all inputs  
+- Clean error handling  
+
+==================================================
+14) FULL PROJECT OUTPUT REQUIRED
+==================================================
+YOU MUST PROVIDE:
+
+✔ Full folder structure (frontend + backend)  
+✔ All React components  
+✔ All backend controllers & routes  
+✔ All MongoDB models  
+✔ All middlewares  
+✔ All Socket.IO chat code  
+✔ All admin panel pages  
+✔ All payment components  
+✔ All dashboard pages  
+✔ All scrim creation pages  
+✔ Full API documentation  
+✔ Full .env example  
+✔ Full installation instructions (for VS Code)  
+✔ Scripts to start frontend + backend  
+
+==================================================
+15) ENVIRONMENT VARIABLES REQUIRED
+==================================================
+Provide a template like:
+
