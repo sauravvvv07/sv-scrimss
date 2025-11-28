@@ -1,5 +1,11 @@
 import { useEffect, useState, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -24,35 +30,54 @@ export function ChatModal({ post, isOpen, onClose }: ChatModalProps) {
   useEffect(() => {
     if (!isOpen) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const socket = new WebSocket(wsUrl);
+    try {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host; // Already includes port if needed
+      const wsUrl = `${protocol}//${host}/ws`;
+      const socket = new WebSocket(wsUrl);
 
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "join", postId: post.id }));
-    };
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: "join", postId: post.id }));
+      };
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "message") {
-        setMessages((prev) => [...prev, data.message]);
-      } else if (data.type === "history") {
-        setMessages(data.messages);
-      } else if (data.type === "blocked") {
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "message") {
+          setMessages((prev) => [...prev, data.message]);
+        } else if (data.type === "history") {
+          setMessages(data.messages);
+        } else if (data.type === "blocked") {
+          toast({
+            title: "Message blocked",
+            description: "Your message contains inappropriate content",
+            variant: "destructive",
+          });
+        }
+      };
+
+      socket.onerror = () => {
         toast({
-          title: "Message blocked",
-          description: "Your message contains inappropriate content",
+          title: "Connection Error",
+          description: "Failed to connect to chat",
           variant: "destructive",
         });
-      }
-    };
+      };
 
-    setWs(socket);
+      setWs(socket);
 
-    return () => {
-      socket.close();
-    };
-  }, [isOpen, post.id]);
+      return () => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.close();
+        }
+      };
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to initialize chat",
+        variant: "destructive",
+      });
+    }
+  }, [isOpen, post.id, toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,9 +118,9 @@ export function ChatModal({ post, isOpen, onClose }: ChatModalProps) {
       <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl">Chat with {post.name}</DialogTitle>
-          <div className="text-sm text-muted-foreground">
+          <DialogDescription>
             {post.rank} • K/D: {post.kd}
-          </div>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-3 py-4">
@@ -104,7 +129,9 @@ export function ChatModal({ post, isOpen, onClose }: ChatModalProps) {
             return (
               <div
                 key={index}
-                className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                className={`flex ${
+                  isOwnMessage ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
                   className={`max-w-xs rounded-2xl px-4 py-2 ${
