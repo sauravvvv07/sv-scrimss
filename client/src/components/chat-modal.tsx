@@ -32,8 +32,9 @@ export function ChatModal({ post, isOpen, onClose }: ChatModalProps) {
 
     try {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host; // Already includes port if needed
-      const wsUrl = `${protocol}//${host}/ws`;
+      const hostname = window.location.hostname || "localhost";
+      const port = window.location.port ? `:${window.location.port}` : "";
+      const wsUrl = `${protocol}//${hostname}${port}/ws`;
       const socket = new WebSocket(wsUrl);
 
       socket.onopen = () => {
@@ -84,12 +85,13 @@ export function ChatModal({ post, isOpen, onClose }: ChatModalProps) {
   }, [messages]);
 
   const sendMessage = () => {
-    if (!newMessage.trim() || !ws) return;
+    if (!newMessage.trim() || !ws || !user) return;
 
     ws.send(
       JSON.stringify({
         type: "message",
         postId: post.id,
+        userId: user.id,
         message: newMessage,
       })
     );

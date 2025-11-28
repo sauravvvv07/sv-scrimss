@@ -26,7 +26,7 @@ export function AddMoneyModal({ isOpen, onClose }: AddMoneyModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentInProgress, setPaymentInProgress] = useState(false);
 
-  const UPI_ID = "sauravans2@okaxis";
+  const UPI_ID = "sauravans21@okaxis";
 
   // Detect when user returns from UPI app
   useEffect(() => {

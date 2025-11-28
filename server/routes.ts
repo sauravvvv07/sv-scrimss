@@ -18,6 +18,7 @@ import {
   loginSchema,
   type User,
 } from "@shared/schema";
+import { z } from "zod";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { sendPaymentConfirmation, sendPaymentApproved, sendWalletNotification } from "./email";
@@ -75,20 +76,21 @@ function containsBadWords(text: string): boolean {
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      const data = insertUserSchema.parse(req.body);
+      const data = insertUserSchema.parse(req.body) as any;
       
       const hashedPassword = await bcrypt.hash(data.password, 10);
       const playerId = nanoid(8).toUpperCase();
 
       const [user] = await db.insert(users).values({
-        ...data,
+        username: data.username,
+        email: data.email,
         password: hashedPassword,
         playerId,
       }).returning();
 
       const token = jwt.sign({ userId: user.id }, JWT_SECRET);
 
-      const { password, ...userWithoutPassword } = user;
+      const { password: _, ...userWithoutPassword } = user;
 
       res.json({ user: userWithoutPassword, token });
     } catch (error: any) {
@@ -166,9 +168,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: parseFloat(amount),
         receipt: `scrim_${scrimId}_${req.user!.id}`,
         description: `${scrim.matchType} Scrim - ₹${amount}`,
-      });
+      }) as any;
 
-      res.json({ orderId: order.id, amount: order.amount, currency: order.currency });
+      res.json({ orderId: order?.id, amount: order?.amount || parseFloat(amount), currency: order?.currency || "INR" });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to create payment order" });
     }
@@ -261,6 +263,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Already registered" });
       }
 
+      // Check if it's a free scrim (entryFee is 0 or null)
+      const isFreeScrim = !amount || parseFloat(amount) === 0;
+
+      if (isFreeScrim) {
+        // Free scrim - register directly without payment
+        await db.insert(scrimRegistrations).values({
+          scrimId: parseInt(scrimId),
+          userId: req.user!.id,
+          paymentStatus: "verified",
+        });
+
+        await db.update(scrims)
+          .set({ spotsRemaining: sql`${scrims.spotsRemaining} - 1` })
+          .where(eq(scrims.id, parseInt(scrimId)));
+
+        await sendPaymentConfirmation(
+          req.user!.email,
+          req.user!.username,
+          "0",
+          scrim.matchType
+        );
+
+        return res.json({ message: "Registration successful" });
+      }
+
+      // Paid scrim - create pending transaction for admin approval
       const [transaction] = await db.insert(transactions).values({
         userId: req.user!.id,
         type: "entryFee",

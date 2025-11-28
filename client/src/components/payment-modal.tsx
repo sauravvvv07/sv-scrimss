@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +25,7 @@ export function PaymentModal({ scrim, isOpen, onClose }: PaymentModalProps) {
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const UPI_ID = "sauravans2@okaxis";
+  const UPI_ID = "sauravans21@okaxis";
 
   const copyUPI = () => {
     navigator.clipboard.writeText(UPI_ID);
@@ -58,11 +63,14 @@ export function PaymentModal({ scrim, isOpen, onClose }: PaymentModalProps) {
 
       toast({
         title: "Registration submitted",
-        description: "Your payment is being verified. You'll be notified once approved.",
+        description:
+          "Your payment is being verified. You'll be notified once approved.",
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/scrims"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/profile/registrations"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/profile/registrations"],
+      });
 
       onClose();
     } catch (error: any) {
@@ -80,22 +88,24 @@ export function PaymentModal({ scrim, isOpen, onClose }: PaymentModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">
-            {scrim.matchType}
-          </DialogTitle>
+          <DialogTitle className="text-2xl">{scrim.matchType}</DialogTitle>
           <div className="flex items-center gap-1 text-3xl font-bold font-mono text-primary pt-2">
             <IndianRupee size={24} />
             <span>{scrim.entryFee}</span>
-            <span className="text-base font-normal text-muted-foreground ml-2">Entry Fee</span>
+            <span className="text-base font-normal text-muted-foreground ml-2">
+              Entry Fee
+            </span>
           </div>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           <div className="p-6 border border-border rounded-lg bg-muted/50 text-center space-y-4">
             <div className="w-64 h-64 mx-auto bg-white rounded-lg flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">QR Code Placeholder</p>
+              <p className="text-sm text-muted-foreground">
+                QR Code Placeholder
+              </p>
             </div>
-            
+
             <div>
               <Label className="text-sm font-medium">UPI ID</Label>
               <div className="flex items-center gap-2 mt-2">
@@ -165,7 +175,8 @@ export function PaymentModal({ scrim, isOpen, onClose }: PaymentModalProps) {
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            Your registration will be confirmed once payment is verified by admin
+            Your registration will be confirmed once payment is verified by
+            admin
           </p>
         </div>
       </DialogContent>
