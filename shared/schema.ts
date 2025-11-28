@@ -54,6 +54,7 @@ export const transactions = pgTable("transactions", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   utr: text("utr"),
   screenshotUrl: text("screenshot_url"),
+  teamName: text("team_name"),
   paymentStatus: text("payment_status").notNull().default("pending"),
   scrimId: integer("scrim_id").references(() => scrims.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -141,7 +142,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   totalMatches: true,
   avgSurvivalTime: true,
   createdAt: true,
-});
+} as any);
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -153,29 +154,29 @@ export const insertScrimSchema = createInsertSchema(scrims).omit({
   spotsRemaining: true,
   status: true,
   createdAt: true,
-});
+} as any);
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({
   id: true,
   paymentStatus: true,
   createdAt: true,
-});
+} as any);
 
 export const insertTeammatesPostSchema = createInsertSchema(teammatesPosts).omit({
   id: true,
   createdAt: true,
-});
+} as any);
 
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
   id: true,
   reported: true,
   createdAt: true,
-});
+} as any);
 
 export const insertLeaderboardEntrySchema = createInsertSchema(leaderboardEntries).omit({
   id: true,
   createdAt: true,
-});
+} as any);
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
