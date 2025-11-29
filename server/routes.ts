@@ -290,10 +290,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentStatus: "verified",
       }).returning();
 
-      // Create registration
-      const slotNumber = (mode === "squad") 
-        ? (Math.floor(Math.random() * 24) * 4 + 1)
-        : (99);
+      // Assign slot number - Sequential, not random
+      let slotNumber: number;
+      
+      if (mode === "squad") {
+        // Squad uses slots 1-98
+        const existingSlots = await db.select().from(scrimRegistrations)
+          .where(and(
+            eq(scrimRegistrations.scrimId, parseInt(scrimId)),
+            eq(scrimRegistrations.mode, "squad")
+          ));
+        
+        const takenSlots = existingSlots.map(r => r.slotNumber).filter(s => s !== null);
+        let slot = 1;
+        while (takenSlots.includes(slot) && slot <= 98) {
+          slot += 4; // Squad slots: 1, 5, 9, 13, ... 97
+        }
+        slotNumber = slot <= 98 ? slot : 97;
+      } else {
+        // Solo/Duo use slots 99-100
+        const existingSoloDuoSlots = await db.select().from(scrimRegistrations)
+          .where(and(
+            eq(scrimRegistrations.scrimId, parseInt(scrimId)),
+            sql`${scrimRegistrations.mode} IN ('solo', 'duo')`
+          ));
+        
+        const takenSlots = existingSoloDuoSlots.map(r => r.slotNumber).filter(s => s !== null);
+        slotNumber = takenSlots.includes(99) ? 100 : 99;
+      }
 
       const [registration] = await db.insert(scrimRegistrations).values({
         scrimId: parseInt(scrimId),
@@ -435,6 +459,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(profile || null);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to fetch team profile" });
+    }
+  });
+
+  app.get("/api/scrim/:scrimId/slots-status", async (req, res) => {
+    try {
+      const scrimId = parseInt(req.params.scrimId);
+      
+      // Count registrations by mode for this scrim
+      const soloRegistrations = await db.select().from(scrimRegistrations)
+        .where(and(
+          eq(scrimRegistrations.scrimId, scrimId),
+          eq(scrimRegistrations.mode, "solo")
+        ));
+      
+      const duoRegistrations = await db.select().from(scrimRegistrations)
+        .where(and(
+          eq(scrimRegistrations.scrimId, scrimId),
+          eq(scrimRegistrations.mode, "duo")
+        ));
+      
+      const squadRegistrations = await db.select().from(scrimRegistrations)
+        .where(and(
+          eq(scrimRegistrations.scrimId, scrimId),
+          eq(scrimRegistrations.mode, "squad")
+        ));
+      
+      res.json({
+        soloCount: soloRegistrations.length,
+        duoCount: duoRegistrations.length,
+        squadCount: squadRegistrations.length,
+        totalSoloDuoSlots: 2, // Slots 99-100 are for solo/duo only
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch slots status" });
     }
   });
 

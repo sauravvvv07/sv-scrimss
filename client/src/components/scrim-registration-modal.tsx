@@ -60,6 +60,7 @@ export function ScrimRegistrationModal({
   const [savedTeamProfile, setSavedTeamProfile] = useState<any>(null);
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
+  const [slotsStatus, setSlotsStatus] = useState<any>(null);
 
   const entryFeeAmount =
     parseFloat(scrim.entryFee.toString()) * MODE_INFO[mode].players;
@@ -76,7 +77,13 @@ export function ScrimRegistrationModal({
         setSavedTeamProfile(profile);
       })
       .catch(() => setSavedTeamProfile(null));
-  }, [isOpen]);
+
+    apiRequest("GET", `/api/scrim/${scrim.id}/slots-status`, {})
+      .then((status) => {
+        setSlotsStatus(status);
+      })
+      .catch(() => setSlotsStatus(null));
+  }, [isOpen, scrim.id]);
 
   const handleModeSelect = (selectedMode: Mode) => {
     const requiredSlots = MODE_INFO[selectedMode].players;
@@ -218,11 +225,49 @@ export function ScrimRegistrationModal({
                   {(["solo", "duo", "squad"] as Mode[]).map((m) => {
                     const info = MODE_INFO[m];
                     const requiredSlots = info.players;
-                    const availableSlots = Math.floor(
-                      parseFloat(scrim.spotsRemaining.toString()) /
-                        requiredSlots
-                    );
-                    const isDisabled = availableSlots === 0;
+
+                    // Determine availability based on slots status
+                    let isDisabled = false;
+                    let statusText = "";
+
+                    if (!slotsStatus) {
+                      // Fallback while loading
+                      const availableSlots = Math.floor(
+                        parseFloat(scrim.spotsRemaining.toString()) /
+                          requiredSlots
+                      );
+                      isDisabled = availableSlots === 0;
+                      statusText = `${availableSlots} available`;
+                    } else {
+                      // Solo/Duo use slots 99-100 (2 total)
+                      if (m === "solo" || m === "duo") {
+                        const soloDuoFilled =
+                          (slotsStatus.soloCount || 0) +
+                          (slotsStatus.duoCount || 0);
+                        const soloDuoAvailable = Math.max(0, 2 - soloDuoFilled);
+                        isDisabled = soloDuoAvailable === 0;
+                        statusText = isDisabled
+                          ? "Slots filled"
+                          : `${soloDuoAvailable} slot${
+                              soloDuoAvailable !== 1 ? "s" : ""
+                            } left`;
+                      }
+                      // Squad uses slots 1-98
+                      else if (m === "squad") {
+                        const squadSpotsRemaining = parseFloat(
+                          scrim.spotsRemaining.toString()
+                        );
+                        const squadSlotsAvailable = Math.floor(
+                          squadSpotsRemaining / 4
+                        );
+                        isDisabled = squadSlotsAvailable === 0;
+                        statusText = isDisabled
+                          ? "Slots filled"
+                          : `${squadSlotsAvailable} squad${
+                              squadSlotsAvailable !== 1 ? "s" : ""
+                            } can join`;
+                      }
+                    }
 
                     return (
                       <button
@@ -250,7 +295,7 @@ export function ScrimRegistrationModal({
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-semibold">
-                              {availableSlots} available
+                              {statusText}
                             </p>
                             {isDisabled && (
                               <p className="text-xs text-destructive">Full</p>

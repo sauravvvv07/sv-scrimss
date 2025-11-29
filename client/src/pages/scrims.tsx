@@ -1,11 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, MapPin, Users, IndianRupee, Calendar, Clock } from "lucide-react";
+import {
+  Trophy,
+  MapPin,
+  Users,
+  IndianRupee,
+  Calendar,
+  Clock,
+} from "lucide-react";
 import { useState } from "react";
-import { PaymentModal } from "@/components/payment-modal";
+import { ScrimRegistrationModal } from "@/components/scrim-registration-modal";
 import { useAuth } from "@/lib/auth";
 import { Link } from "wouter";
 import type { Scrim } from "@shared/schema";
@@ -46,7 +58,10 @@ export default function Scrims() {
       <Card className="hover-elevate h-full flex flex-col">
         <CardHeader className="space-y-3 pb-4">
           <div className="flex items-start justify-between gap-2">
-            <Badge variant={isOpen ? "default" : "secondary"} data-testid={`badge-status-${scrim.id}`}>
+            <Badge
+              variant={isOpen ? "default" : "secondary"}
+              data-testid={`badge-status-${scrim.id}`}
+            >
               {scrim.status}
             </Badge>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -101,11 +116,20 @@ export default function Scrims() {
               onClick={() => setSelectedScrim(scrim)}
               data-testid={`button-register-${scrim.id}`}
             >
-              {isFull ? "Full" : isOpen ? "Register & Pay" : scrim.status === "live" ? "Live Now" : "Completed"}
+              {isFull
+                ? "Full"
+                : isOpen
+                ? "Register & Pay"
+                : scrim.status === "live"
+                ? "Live Now"
+                : "Completed"}
             </Button>
           ) : (
             <Link href="/login" className="w-full">
-              <Button className="w-full" data-testid={`button-login-${scrim.id}`}>
+              <Button
+                className="w-full"
+                data-testid={`button-login-${scrim.id}`}
+              >
                 Login to Register
               </Button>
             </Link>
@@ -118,8 +142,12 @@ export default function Scrims() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 pb-24 md:pb-8">
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">Scrims & Tournaments</h1>
-        <p className="text-muted-foreground text-lg">Join competitive matches and win prizes</p>
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">
+          Scrims & Tournaments
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Join competitive matches and win prizes
+        </p>
       </div>
 
       {openScrims.length > 0 && (
@@ -162,13 +190,16 @@ export default function Scrims() {
         <Card className="p-12 text-center">
           <Trophy className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No Scrims Available</h3>
-          <p className="text-muted-foreground">Check back soon for new tournaments</p>
+          <p className="text-muted-foreground">
+            Check back soon for new tournaments
+          </p>
         </Card>
       )}
 
-      {selectedScrim && (
-        <PaymentModal
+      {selectedScrim && user && (
+        <ScrimRegistrationModal
           scrim={selectedScrim}
+          user={user}
           isOpen={!!selectedScrim}
           onClose={() => setSelectedScrim(null)}
         />
