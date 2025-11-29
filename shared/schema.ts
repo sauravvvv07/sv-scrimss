@@ -23,6 +23,7 @@ export const users = pgTable("users", {
 
 export const scrims = pgTable("scrims", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  scrimName: text("scrim_name").notNull(),
   matchType: text("match_type").notNull(),
   map: text("map").notNull(),
   entryFee: decimal("entry_fee", { precision: 10, scale: 2 }).notNull(),
@@ -104,6 +105,14 @@ export const teamProfiles = pgTable("team_profiles", {
   mode: text("mode").notNull(), // "solo", "duo", "squad"
   members: jsonb("members").notNull(), // [{ign, playerId, userId?}]
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const scrimResults = pgTable("scrim_results", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  scrimId: integer("scrim_id").notNull().references(() => scrims.id, { onDelete: "cascade" }),
+  imageUrl: text("image_url").notNull(),
+  standings: text("standings"), // optional JSON string for overall standings
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({

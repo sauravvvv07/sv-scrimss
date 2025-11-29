@@ -15,6 +15,7 @@ import {
   chatMessages, 
   leaderboardEntries,
   teamProfiles,
+  scrimResults,
   insertUserSchema,
   loginSchema,
   type User,
@@ -870,6 +871,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Player unbanned" });
     } catch (error) {
       res.status(500).json({ message: "Failed to unban player" });
+    }
+  });
+
+  app.post("/api/admin/upload-result", authMiddleware, adminMiddleware, upload.single("image"), async (req: AuthRequest, res) => {
+    try {
+      const { scrimId, standings } = req.body;
+      const imageFile = req.file;
+
+      if (!imageFile || !scrimId) {
+        return res.status(400).json({ message: "Image and scrimId required" });
+      }
+
+      const imageUrl = `/uploads/${imageFile.filename}`;
+
+      const [result] = await db.insert(scrimResults).values({
+        scrimId: parseInt(scrimId),
+        imageUrl,
+        standings: standings || null,
+      }).returning();
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Upload failed" });
+    }
+  });
+
+  app.get("/api/admin/scrim-results", async (req, res) => {
+    try {
+      const results = await db.select().from(scrimResults).orderBy(desc(scrimResults.uploadedAt));
+      res.json(results);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to fetch results" });
     }
   });
 

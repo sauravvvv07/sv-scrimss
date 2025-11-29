@@ -4,13 +4,27 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const scrimSchema = z.object({
+  scrimName: z.string().min(1, "Scrim name is required"),
   matchType: z.string().min(1, "Match type is required"),
   map: z.string().min(1, "Map is required"),
   entryFee: z.string().min(1, "Entry fee is required"),
@@ -29,6 +43,7 @@ export function CreateScrimPanel() {
   const form = useForm<ScrimForm>({
     resolver: zodResolver(scrimSchema),
     defaultValues: {
+      scrimName: "",
       matchType: "",
       map: "",
       entryFee: "",
@@ -73,13 +88,46 @@ export function CreateScrimPanel() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
+                name="scrimName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scrim Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="e.g., scrim1, weekend_war"
+                        data-testid="input-scrim-name"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="matchType"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Match Type</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="e.g., Squad TPP, Duo FPP" data-testid="input-match-type" />
-                    </FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-match-type">
+                          <SelectValue placeholder="Select match type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Squad TPP">Squad TPP</SelectItem>
+                        <SelectItem value="Squad FPP">Squad FPP</SelectItem>
+                        <SelectItem value="Duo TPP">Duo TPP</SelectItem>
+                        <SelectItem value="Duo FPP">Duo FPP</SelectItem>
+                        <SelectItem value="Solo TPP">Solo TPP</SelectItem>
+                        <SelectItem value="Solo FPP">Solo FPP</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -91,7 +139,10 @@ export function CreateScrimPanel() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Map</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger data-testid="select-map">
                           <SelectValue placeholder="Select map" />
@@ -117,7 +168,12 @@ export function CreateScrimPanel() {
                   <FormItem>
                     <FormLabel>Entry Fee (₹)</FormLabel>
                     <FormControl>
-                      <Input {...field} type="number" placeholder="50" data-testid="input-entry-fee" />
+                      <Input
+                        {...field}
+                        type="number"
+                        placeholder="50"
+                        data-testid="input-entry-fee"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -131,7 +187,12 @@ export function CreateScrimPanel() {
                   <FormItem>
                     <FormLabel>Prize Pool (₹)</FormLabel>
                     <FormControl>
-                      <Input {...field} type="number" placeholder="500" data-testid="input-prize-pool" />
+                      <Input
+                        {...field}
+                        type="number"
+                        placeholder="500"
+                        data-testid="input-prize-pool"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -176,7 +237,9 @@ export function CreateScrimPanel() {
                       <Input
                         {...field}
                         type="number"
-                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value))
+                        }
                         data-testid="input-max-players"
                       />
                     </FormControl>
@@ -186,7 +249,11 @@ export function CreateScrimPanel() {
               />
             </div>
 
-            <Button type="submit" disabled={isSubmitting} data-testid="button-create-scrim">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              data-testid="button-create-scrim"
+            >
               {isSubmitting ? "Creating..." : "Create Scrim"}
             </Button>
           </form>
