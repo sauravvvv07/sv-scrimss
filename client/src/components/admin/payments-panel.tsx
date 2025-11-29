@@ -15,7 +15,8 @@ export function PaymentsPanel() {
     queryKey: ["/api/admin/transactions"],
   });
 
-  const pendingTransactions = transactions?.filter((t) => t.paymentStatus === "pending") || [];
+  const pendingTransactions =
+    transactions?.filter((t) => t.paymentStatus === "pending") || [];
 
   const handleApprove = async (txnId: number) => {
     try {
@@ -88,23 +89,40 @@ export function PaymentsPanel() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <div className="text-sm text-muted-foreground">Amount</div>
+                          <div className="text-sm text-muted-foreground">
+                            Amount
+                          </div>
                           <div className="flex items-center gap-1 text-xl font-bold font-mono">
                             <IndianRupee size={16} />
                             <span>{txn.amount}</span>
                           </div>
                         </div>
-                        {txn.utr && (
+                        {txn.teamName && (
                           <div>
-                            <div className="text-sm text-muted-foreground">UTR</div>
-                            <div className="font-mono text-sm">{txn.utr}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Team Name
+                            </div>
+                            <div className="font-semibold text-sm">
+                              {txn.teamName}
+                            </div>
                           </div>
                         )}
                       </div>
 
+                      {txn.utr && (
+                        <div>
+                          <div className="text-sm text-muted-foreground">
+                            UTR
+                          </div>
+                          <div className="font-mono text-sm">{txn.utr}</div>
+                        </div>
+                      )}
+
                       {txn.scrimId && (
                         <div>
-                          <div className="text-sm text-muted-foreground">Scrim</div>
+                          <div className="text-sm text-muted-foreground">
+                            Scrim
+                          </div>
                           <div className="text-sm">ID: {txn.scrimId}</div>
                         </div>
                       )}
@@ -120,7 +138,9 @@ export function PaymentsPanel() {
                           variant="outline"
                           size="sm"
                           className="w-full md:w-auto"
-                          onClick={() => window.open(txn.screenshotUrl, "_blank")}
+                          onClick={() =>
+                            window.open(txn.screenshotUrl, "_blank")
+                          }
                           data-testid={`button-view-screenshot-${txn.id}`}
                         >
                           <ExternalLink size={16} className="mr-2" />
@@ -158,7 +178,9 @@ export function PaymentsPanel() {
           <div className="text-center py-12">
             <CheckCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">All Caught Up</h3>
-            <p className="text-muted-foreground">No pending payments to review</p>
+            <p className="text-muted-foreground">
+              No pending payments to review
+            </p>
           </div>
         )}
       </CardContent>

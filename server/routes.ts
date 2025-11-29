@@ -14,6 +14,7 @@ import {
   teammatesPosts, 
   chatMessages, 
   leaderboardEntries,
+  teamProfiles,
   insertUserSchema,
   loginSchema,
   type User,
@@ -242,9 +243,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/scrim/register", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { scrimId, mode, teamName, teamMembers } = req.body;
+      const [scrim] = await db.select().from(scrims).where(eq(scrims.id, parseInt(scrimId)));
+
+      if (!scrim || scrim.spotsRemaining <= 0) {
+        return res.status(400).json({ message: "Scrim full or not found" });
+      }
+
+      const existing = await db.select().from(scrimRegistrations)
+        .where(and(
+          eq(scrimRegistrations.scrimId, parseInt(scrimId)),
+          eq(scrimRegistrations.userId, req.user!.id)
+        ));
+
+      if (existing.length > 0) {
+        return res.status(400).json({ message: "Already registered for this scrim" });
+      }
+
+      const entryFeeAmount = parseFloat(scrim.entryFee.toString());
+      const userBalance = parseFloat(req.user!.walletBalance.toString());
+
+      // Check if user has enough wallet balance
+      if (userBalance < entryFeeAmount) {
+        return res.status(400).json({ 
+          message: "Insufficient wallet balance",
+          required: entryFeeAmount,
+          available: userBalance,
+          shortfall: entryFeeAmount - userBalance
+        });
+      }
+
+      // Deduct from wallet instantly
+      await db.update(users)
+        .set({ walletBalance: sql`${users.walletBalance} - ${entryFeeAmount}` })
+        .where(eq(users.id, req.user!.id));
+
+      // Create transaction record
+      const [transaction] = await db.insert(transactions).values({
+        userId: req.user!.id,
+        type: "entryFee",
+        amount: entryFeeAmount.toString(),
+        teamName: teamName || null,
+        scrimId: parseInt(scrimId),
+        paymentStatus: "verified",
+      }).returning();
+
+      // Create registration
+      const slotNumber = (mode === "squad") 
+        ? (Math.floor(Math.random() * 24) * 4 + 1)
+        : (99);
+
+      const [registration] = await db.insert(scrimRegistrations).values({
+        scrimId: parseInt(scrimId),
+        userId: req.user!.id,
+        mode,
+        teamName: teamName || null,
+        slotNumber,
+        paymentStatus: "verified",
+      }).returning();
+
+      // Determine team size
+      const teamSizes = { solo: 1, duo: 2, squad: 4 };
+      const teamSize = teamSizes[mode as keyof typeof teamSizes] || 1;
+
+      // Update scrim spots
+      await db.update(scrims)
+        .set({ 
+          spotsRemaining: sql`${scrims.spotsRemaining} - ${teamSize}`,
+          status: sql`CASE WHEN ${scrims.spotsRemaining} - ${teamSize} <= 0 THEN 'full' ELSE ${scrims.status} END`
+        })
+        .where(eq(scrims.id, parseInt(scrimId)));
+
+      // Save team profile for next time
+      if (teamMembers && teamMembers.length > 0) {
+        const [existingTeam] = await db.select().from(teamProfiles)
+          .where(eq(teamProfiles.userId, req.user!.id));
+
+        if (existingTeam) {
+          await db.update(teamProfiles)
+            .set({
+              teamName: teamName || existingTeam.teamName,
+              mode,
+              members: teamMembers,
+              updatedAt: new Date(),
+            })
+            .where(eq(teamProfiles.userId, req.user!.id));
+        } else {
+          await db.insert(teamProfiles).values({
+            userId: req.user!.id,
+            teamName: teamName || null,
+            mode,
+            members: teamMembers,
+          });
+        }
+      }
+
+      res.json({ 
+        message: "Registration successful! Entry fee deducted from wallet",
+        registration,
+        transaction,
+        slotNumber,
+        userName: req.user!.username,
+        newBalance: parseFloat(req.user!.walletBalance.toString()) - entryFeeAmount,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Registration failed" });
+    }
+  });
+
   app.post("/api/payment/register", authMiddleware, upload.single("screenshot"), async (req: AuthRequest, res) => {
     try {
-      const { scrimId, amount, utr } = req.body;
+      const { scrimId, amount, utr, teamName } = req.body;
       const screenshot = req.file;
 
       const [scrim] = await db.select().from(scrims).where(eq(scrims.id, parseInt(scrimId)));
@@ -263,11 +374,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Already registered" });
       }
 
-      // Check if it's a free scrim (entryFee is 0 or null)
       const isFreeScrim = !amount || parseFloat(amount) === 0;
 
       if (isFreeScrim) {
-        // Free scrim - register directly without payment
         await db.insert(scrimRegistrations).values({
           scrimId: parseInt(scrimId),
           userId: req.user!.id,
@@ -288,12 +397,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "Registration successful" });
       }
 
-      // Paid scrim - create pending transaction for admin approval
       const [transaction] = await db.insert(transactions).values({
         userId: req.user!.id,
         type: "entryFee",
         amount,
         utr: utr || null,
+        teamName: teamName || null,
         screenshotUrl: screenshot ? `/uploads/${screenshot.filename}` : null,
         scrimId: parseInt(scrimId),
         paymentStatus: "pending",
@@ -315,6 +424,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Registration submitted", transaction });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Registration failed" });
+    }
+  });
+
+  app.get("/api/scrim/team-profile", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const [profile] = await db.select().from(teamProfiles)
+        .where(eq(teamProfiles.userId, req.user!.id));
+      
+      res.json(profile || null);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch team profile" });
     }
   });
 

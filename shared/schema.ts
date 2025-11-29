@@ -43,6 +43,9 @@ export const scrimRegistrations = pgTable("scrim_registrations", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   scrimId: integer("scrim_id").notNull().references(() => scrims.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  mode: text("mode"), // "solo", "duo", "squad"
+  teamName: text("team_name"),
+  slotNumber: integer("slot_number"),
   paymentStatus: text("payment_status").notNull().default("pending"),
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
 });
@@ -94,12 +97,22 @@ export const leaderboardEntries = pgTable("leaderboard_entries", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const teamProfiles = pgTable("team_profiles", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  teamName: text("team_name"),
+  mode: text("mode").notNull(), // "solo", "duo", "squad"
+  members: jsonb("members").notNull(), // [{ign, playerId, userId?}]
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   registrations: many(scrimRegistrations),
   transactions: many(transactions),
   teammatesPosts: many(teammatesPosts),
   chatMessages: many(chatMessages),
   leaderboardEntries: many(leaderboardEntries),
+  teamProfiles: many(teamProfiles),
 }));
 
 export const scrimsRelations = relations(scrims, ({ many }) => ({
@@ -129,6 +142,10 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
 
 export const leaderboardEntriesRelations = relations(leaderboardEntries, ({ one }) => ({
   user: one(users, { fields: [leaderboardEntries.userId], references: [users.id] }),
+}));
+
+export const teamProfilesRelations = relations(teamProfiles, ({ one }) => ({
+  user: one(users, { fields: [teamProfiles.userId], references: [users.id] }),
 }));
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -192,3 +209,4 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type LeaderboardEntry = typeof leaderboardEntries.$inferSelect;
 export type InsertLeaderboardEntry = z.infer<typeof insertLeaderboardEntrySchema>;
+export type TeamProfile = typeof teamProfiles.$inferSelect;
