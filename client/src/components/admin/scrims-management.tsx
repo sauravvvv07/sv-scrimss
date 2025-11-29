@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { IndianRupee, Users } from "lucide-react";
+import { IndianRupee, Users, Trash2 } from "lucide-react";
 import type { Scrim } from "@shared/schema";
 
 export function ScrimsManagement() {
@@ -53,7 +53,9 @@ export function ScrimsManagement() {
 
   const handleUpdateStatus = async (scrimId: number, status: string) => {
     try {
-      await apiRequest("POST", `/api/admin/scrims/${scrimId}/status`, { status });
+      await apiRequest("POST", `/api/admin/scrims/${scrimId}/status`, {
+        status,
+      });
 
       toast({
         title: "Status updated",
@@ -64,6 +66,33 @@ export function ScrimsManagement() {
     } catch (error: any) {
       toast({
         title: "Failed to update status",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteScrim = async (scrimId: number) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this scrim? All registrations will be removed."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiRequest("DELETE", `/api/admin/scrims/${scrimId}`, {});
+
+      toast({
+        title: "Scrim deleted",
+        description: "The scrim and all registrations have been removed",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/scrims"] });
+    } catch (error: any) {
+      toast({
+        title: "Failed to delete scrim",
         description: error.message || "Something went wrong",
         variant: "destructive",
       });
@@ -92,31 +121,45 @@ export function ScrimsManagement() {
                       <div className="flex-1 space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="font-semibold text-lg">{scrim.matchType}</div>
-                            <div className="text-sm text-muted-foreground">{scrim.map}</div>
+                            <div className="font-semibold text-lg">
+                              {scrim.matchType}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {scrim.map}
+                            </div>
                           </div>
-                          <Badge variant={scrim.status === "open" ? "default" : "secondary"}>
+                          <Badge
+                            variant={
+                              scrim.status === "open" ? "default" : "secondary"
+                            }
+                          >
                             {scrim.status}
                           </Badge>
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                           <div>
-                            <div className="text-muted-foreground">Entry Fee</div>
+                            <div className="text-muted-foreground">
+                              Entry Fee
+                            </div>
                             <div className="flex items-center gap-1 font-mono font-semibold">
                               <IndianRupee size={14} />
                               <span>{scrim.entryFee}</span>
                             </div>
                           </div>
                           <div>
-                            <div className="text-muted-foreground">Prize Pool</div>
+                            <div className="text-muted-foreground">
+                              Prize Pool
+                            </div>
                             <div className="flex items-center gap-1 font-mono font-semibold">
                               <IndianRupee size={14} />
                               <span>{scrim.prizePool}</span>
                             </div>
                           </div>
                           <div>
-                            <div className="text-muted-foreground">Date & Time</div>
+                            <div className="text-muted-foreground">
+                              Date & Time
+                            </div>
                             <div className="font-medium">
                               {scrim.date} {scrim.time}
                             </div>
@@ -135,12 +178,18 @@ export function ScrimsManagement() {
                         {scrim.roomId && (
                           <div className="pt-2 border-t space-y-1">
                             <div className="text-sm">
-                              <span className="text-muted-foreground">Room ID:</span>{" "}
+                              <span className="text-muted-foreground">
+                                Room ID:
+                              </span>{" "}
                               <code className="font-mono">{scrim.roomId}</code>
                             </div>
                             <div className="text-sm">
-                              <span className="text-muted-foreground">Password:</span>{" "}
-                              <code className="font-mono">{scrim.roomPassword}</code>
+                              <span className="text-muted-foreground">
+                                Password:
+                              </span>{" "}
+                              <code className="font-mono">
+                                {scrim.roomPassword}
+                              </code>
                             </div>
                           </div>
                         )}
@@ -167,7 +216,9 @@ export function ScrimsManagement() {
                             <Button
                               variant="default"
                               size="sm"
-                              onClick={() => handleUpdateStatus(scrim.id, "live")}
+                              onClick={() =>
+                                handleUpdateStatus(scrim.id, "live")
+                              }
                               data-testid={`button-start-${scrim.id}`}
                             >
                               Start
@@ -177,12 +228,23 @@ export function ScrimsManagement() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => handleUpdateStatus(scrim.id, "completed")}
+                              onClick={() =>
+                                handleUpdateStatus(scrim.id, "completed")
+                              }
                               data-testid={`button-complete-${scrim.id}`}
                             >
                               Complete
                             </Button>
                           )}
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteScrim(scrim.id)}
+                            data-testid={`button-delete-${scrim.id}`}
+                          >
+                            <Trash2 size={14} className="mr-1" />
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -193,7 +255,9 @@ export function ScrimsManagement() {
           ) : (
             <div className="text-center py-12">
               <h3 className="text-lg font-semibold mb-2">No Scrims Created</h3>
-              <p className="text-muted-foreground">Create your first scrim in the Create tab</p>
+              <p className="text-muted-foreground">
+                Create your first scrim in the Create tab
+              </p>
             </div>
           )}
         </CardContent>
@@ -202,7 +266,9 @@ export function ScrimsManagement() {
       {selectedScrim && (
         <Card>
           <CardHeader>
-            <CardTitle>Update Room Details - {selectedScrim.matchType}</CardTitle>
+            <CardTitle>
+              Update Room Details - {selectedScrim.matchType}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -230,7 +296,9 @@ export function ScrimsManagement() {
             </div>
 
             <div>
-              <Label htmlFor="youtubeLink">YouTube Stream Link (Optional)</Label>
+              <Label htmlFor="youtubeLink">
+                YouTube Stream Link (Optional)
+              </Label>
               <Input
                 id="youtubeLink"
                 value={youtubeLink}

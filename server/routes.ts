@@ -719,6 +719,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/admin/scrims/:id", authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const scrimId = parseInt(id);
+
+      // Delete related registrations first
+      await db.delete(scrimRegistrations)
+        .where(eq(scrimRegistrations.scrimId, scrimId));
+
+      // Delete the scrim
+      await db.delete(scrims)
+        .where(eq(scrims.id, scrimId));
+
+      res.json({ message: "Scrim deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete scrim" });
+    }
+  });
+
   app.get("/api/admin/transactions", authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
     try {
       const txns = await db.select({
