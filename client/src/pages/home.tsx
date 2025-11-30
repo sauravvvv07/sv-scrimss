@@ -53,13 +53,13 @@ export default function Home() {
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center px-4 max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 tracking-tight">
-              India's Premier BGMI
+              BGIS 2026 Practice Scrims
               <br />
-              Scrims Platform
+              Play Like the Pros
             </h1>
             <p className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-              Join competitive scrims, track your stats, and win prizes on SV
-              Scrims
+              India's most competitive practice lobbies featuring upcoming pro's
+              and competetive teams
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               {user ? (
