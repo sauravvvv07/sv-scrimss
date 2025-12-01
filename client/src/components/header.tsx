@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { Trophy, Menu, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import logoUrl from "@assets/generated_images/sv_scrims_esports_logo.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link href="/">
           <div className="flex items-center gap-2 hover-elevate active-elevate-2 rounded-md px-2 py-1 -ml-2">
-            <Trophy className="h-6 w-6 text-primary" />
+            <img src={logoUrl} alt="SV Scrims" className="h-16 w-16" />
             <span className="text-xl font-bold tracking-tight">SV Scrims</span>
           </div>
         </Link>
@@ -38,7 +39,9 @@ export function Header() {
                 <Button
                   variant={isActive ? "secondary" : "ghost"}
                   size="sm"
-                  data-testid={`nav-${item.label.toLowerCase().replace(" ", "-")}`}
+                  data-testid={`nav-${item.label
+                    .toLowerCase()
+                    .replace(" ", "-")}`}
                 >
                   {item.label}
                 </Button>
@@ -52,7 +55,11 @@ export function Header() {
             <>
               {user.role === "admin" && (
                 <Link href="/admin">
-                  <Button variant="outline" size="sm" data-testid="button-admin">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid="button-admin"
+                  >
                     Admin Panel
                   </Button>
                 </Link>
@@ -74,7 +81,10 @@ export function Header() {
                       Wallet
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={logout} data-testid="button-logout">
+                  <DropdownMenuItem
+                    onClick={logout}
+                    data-testid="button-logout"
+                  >
                     <LogOut size={16} className="mr-2" />
                     Logout
                   </DropdownMenuItem>
