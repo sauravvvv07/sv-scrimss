@@ -120,6 +120,8 @@ export default function Home() {
               href = user ? "/scrims" : "/signup";
             } else if (feature.title === "Find Teammates") {
               href = user ? "/teammates" : "/signup";
+            } else if (feature.title === "Live Leaderboards") {
+              href = "/leaderboard";
             }
 
             return (
