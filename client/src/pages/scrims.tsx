@@ -15,7 +15,9 @@ import {
   IndianRupee,
   Calendar,
   Clock,
+  Share2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { ScrimRegistrationModal } from "@/components/scrim-registration-modal";
 import { useAuth } from "@/lib/auth";
@@ -24,7 +26,38 @@ import type { Scrim } from "@shared/schema";
 
 export default function Scrims() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedScrim, setSelectedScrim] = useState<Scrim | null>(null);
+
+  const handleShare = async (scrim: Scrim) => {
+    const shareData = {
+      title: `${scrim.matchType} - SV Scrims`,
+      text: `Join ${scrim.matchType} on ${scrim.map}! Entry: ₹${scrim.entryFee}, Prize Pool: ₹${scrim.prizePool}. ${scrim.spotsRemaining} spots left!`,
+      url: window.location.origin + "/scrims",
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(
+          `${shareData.title}\n${shareData.text}\n${shareData.url}`
+        );
+        toast({
+          title: "Link Copied!",
+          description: "Share link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        await navigator.clipboard.writeText(shareData.url);
+        toast({
+          title: "Link Copied!",
+          description: "Share link copied to clipboard",
+        });
+      }
+    }
+  };
 
   const { data: scrims, isLoading } = useQuery<Scrim[]>({
     queryKey: ["/api/scrims"],
@@ -64,9 +97,22 @@ export default function Scrims() {
             >
               {scrim.status}
             </Badge>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <MapPin size={14} />
-              <span className="font-medium">{scrim.map}</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <MapPin size={14} />
+                <span className="font-medium">{scrim.map}</span>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShare(scrim);
+                }}
+                data-testid={`button-share-${scrim.id}`}
+              >
+                <Share2 size={16} />
+              </Button>
             </div>
           </div>
           <div>

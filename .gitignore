@@ -4,3 +4,7 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+# Environment variables (keep credentials safe)
+.env
+.env.local
+.env.*.local

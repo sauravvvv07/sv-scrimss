@@ -8,12 +8,38 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { IndianRupee, Users, Trash2 } from "lucide-react";
+import {
+  IndianRupee,
+  Users,
+  Trash2,
+  Eye,
+  ExternalLink,
+  Copy,
+} from "lucide-react";
 import type { Scrim } from "@shared/schema";
+
+interface Registration {
+  id: number;
+  mode: string | null;
+  teamName: string | null;
+  slotNumber: number | null;
+  paymentStatus: string;
+  registeredAt: string;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    playerId: string;
+    mobile: string | null;
+  } | null;
+}
 
 export function ScrimsManagement() {
   const { toast } = useToast();
   const [selectedScrim, setSelectedScrim] = useState<Scrim | null>(null);
+  const [viewingPlayersScrim, setViewingPlayersScrim] = useState<Scrim | null>(
+    null
+  );
   const [roomId, setRoomId] = useState("");
   const [roomPassword, setRoomPassword] = useState("");
   const [youtubeLink, setYoutubeLink] = useState("");
@@ -21,6 +47,24 @@ export function ScrimsManagement() {
   const { data: scrims, isLoading } = useQuery<Scrim[]>({
     queryKey: ["/api/admin/scrims"],
   });
+
+  const { data: registrations, isLoading: loadingRegistrations } = useQuery<
+    Registration[]
+  >({
+    queryKey: ["/api/admin/scrims", viewingPlayersScrim?.id, "registrations"],
+    queryFn: () =>
+      apiRequest(
+        "GET",
+        `/api/admin/scrims/${viewingPlayersScrim?.id}/registrations`,
+        {}
+      ),
+    enabled: !!viewingPlayersScrim,
+  });
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: "Link copied to clipboard" });
+  };
 
   const handleUpdateRoom = async () => {
     if (!selectedScrim) return;
@@ -211,6 +255,32 @@ export function ScrimsManagement() {
                           Manage Room
                         </Button>
 
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setViewingPlayersScrim(scrim)}
+                          data-testid={`button-view-players-${scrim.id}`}
+                        >
+                          <Eye size={14} className="mr-1" />
+                          View Players
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() =>
+                            copyToClipboard(
+                              `${window.location.origin}/live-room/${scrim.id}`
+                            )
+                          }
+                          data-testid={`button-share-live-${scrim.id}`}
+                        >
+                          <ExternalLink size={14} className="mr-1" />
+                          Copy Live Link
+                        </Button>
+
                         <div className="flex gap-2">
                           {scrim.status === "open" && (
                             <Button
@@ -326,6 +396,101 @@ export function ScrimsManagement() {
                 Cancel
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {viewingPlayersScrim && (
+        <Card className="glass-card">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>
+              Registered Players - {viewingPlayersScrim.matchType}
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewingPlayersScrim(null)}
+            >
+              Close
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {loadingRegistrations ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </div>
+            ) : registrations && registrations.length > 0 ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="text-center p-3 bg-muted rounded-lg">
+                    <div className="text-2xl font-bold">
+                      {registrations.filter((r) => r.mode === "squad").length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Squads</div>
+                  </div>
+                  <div className="text-center p-3 bg-muted rounded-lg">
+                    <div className="text-2xl font-bold">
+                      {registrations.filter((r) => r.mode === "duo").length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Duos</div>
+                  </div>
+                  <div className="text-center p-3 bg-muted rounded-lg">
+                    <div className="text-2xl font-bold">
+                      {registrations.filter((r) => r.mode === "solo").length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Solos</div>
+                  </div>
+                </div>
+                {registrations.map((reg) => (
+                  <div
+                    key={reg.id}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">
+                          {reg.user?.username || "Unknown"}
+                        </span>
+                        <Badge variant="outline" className="capitalize">
+                          {reg.mode || "solo"}
+                        </Badge>
+                        {reg.teamName && (
+                          <span className="text-sm text-muted-foreground">
+                            ({reg.teamName})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <span className="font-mono">{reg.user?.playerId}</span>
+                        {reg.user?.mobile && (
+                          <span className="ml-2">{reg.user.mobile}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold">
+                        Slot #{reg.slotNumber || "N/A"}
+                      </div>
+                      <Badge
+                        variant={
+                          reg.paymentStatus === "verified"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {reg.paymentStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No players registered yet
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

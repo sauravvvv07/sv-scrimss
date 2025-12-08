@@ -26,9 +26,10 @@ import { nanoid } from "nanoid";
 import { sendPaymentConfirmation, sendPaymentApproved, sendWalletNotification } from "./email";
 import { createPaymentOrder, verifyPaymentSignature } from "./razorpay";
 
+// Test security with free OWASP ZAP (owasp.org/projects/zap).
 const JWT_SECRET = process.env.JWT_SECRET || "svscrims_secret_key_2024";
-const ADMIN_EMAIL = "sauravans21@gmail.com";
-const ADMIN_PASSWORD = "sauravisgreat";
+const ADMIN_EMAIL = process.env.ADMIN_USERNAME || "";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
 const upload = multer({ dest: "uploads/" });
 
@@ -76,6 +77,7 @@ function containsBadWords(text: string): boolean {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Rate limiting is applied in app.ts
   app.post("/api/auth/signup", async (req, res) => {
     try {
       const data = insertUserSchema.parse(req.body) as any;
@@ -104,23 +106,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = loginSchema.parse(req.body);
 
-      if (data.email === ADMIN_EMAIL && data.password === ADMIN_PASSWORD) {
-        let [admin] = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL));
-
-        if (!admin) {
-          const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
-          [admin] = await db.insert(users).values({
-            username: "Admin",
-            email: ADMIN_EMAIL,
-            password: hashedPassword,
-            playerId: "ADMIN001",
-            role: "admin",
-          }).returning();
+      // Admin login with secure environment variables
+      // Admin must already exist in DB with role="admin" - no auto-creation or auto-upgrade
+      if (ADMIN_EMAIL && ADMIN_PASSWORD && data.email === ADMIN_EMAIL) {
+        const [existingAdmin] = await db.select().from(users).where(
+          and(eq(users.email, ADMIN_EMAIL), eq(users.role, "admin"))
+        );
+        
+        if (existingAdmin) {
+          // Use constant-time comparison for admin password
+          const isValidAdminPassword = await bcrypt.compare(data.password, existingAdmin.password);
+          
+          if (isValidAdminPassword) {
+            const token = jwt.sign({ userId: existingAdmin.id }, JWT_SECRET);
+            const { password, ...adminWithoutPassword } = existingAdmin;
+            return res.json({ user: adminWithoutPassword, token });
+          }
         }
-
-        const token = jwt.sign({ userId: admin.id }, JWT_SECRET);
-        const { password, ...adminWithoutPassword } = admin;
-        return res.json({ user: adminWithoutPassword, token });
+        // Fall through to regular login flow if admin not found or password wrong
       }
 
       const [user] = await db.select().from(users).where(eq(users.email, data.email));
@@ -145,6 +148,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ user: userWithoutPassword, token });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Login failed" });
+    }
+  });
+
+  // One-time admin setup - only works if no admin exists and env vars are set
+  app.post("/api/admin/setup", async (req, res) => {
+    try {
+      if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+        return res.status(400).json({ message: "Admin credentials not configured in environment" });
+      }
+
+      // Check if admin already exists
+      const [existingAdmin] = await db.select().from(users).where(eq(users.role, "admin"));
+      if (existingAdmin) {
+        return res.status(400).json({ message: "Admin already exists" });
+      }
+
+      // Verify the setup credentials match env vars
+      const { email, password } = req.body;
+      if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+        return res.status(401).json({ message: "Invalid admin credentials" });
+      }
+
+      // Create admin user
+      const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
+      const [admin] = await db.insert(users).values({
+        username: "Admin",
+        email: ADMIN_EMAIL,
+        password: hashedPassword,
+        playerId: "ADMIN001",
+        role: "admin",
+      }).returning();
+
+      const token = jwt.sign({ userId: admin.id }, JWT_SECRET);
+      const { password: _, ...adminWithoutPassword } = admin;
+
+      res.json({ user: adminWithoutPassword, token, message: "Admin account created successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Admin setup failed" });
     }
   });
 
@@ -903,6 +944,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(results);
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to fetch results" });
+    }
+  });
+
+  // Get registered players for a specific scrim (Admin view)
+  app.get("/api/admin/scrims/:id/registrations", authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const scrimId = parseInt(req.params.id);
+      
+      const registrations = await db.select({
+        id: scrimRegistrations.id,
+        mode: scrimRegistrations.mode,
+        teamName: scrimRegistrations.teamName,
+        slotNumber: scrimRegistrations.slotNumber,
+        paymentStatus: scrimRegistrations.paymentStatus,
+        registeredAt: scrimRegistrations.registeredAt,
+        user: {
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          playerId: users.playerId,
+          mobile: users.mobile,
+        },
+      })
+        .from(scrimRegistrations)
+        .leftJoin(users, eq(scrimRegistrations.userId, users.id))
+        .where(eq(scrimRegistrations.scrimId, scrimId))
+        .orderBy(scrimRegistrations.slotNumber);
+
+      res.json(registrations);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch registrations" });
+    }
+  });
+
+  // Secure endpoint for live room credentials - only registered players or admins
+  // Returns 404 for unauthorized users to prevent information disclosure
+  app.get("/api/scrim/:id/live", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const scrimId = parseInt(req.params.id);
+      
+      // First check if scrim exists
+      const [scrim] = await db.select({
+        id: scrims.id,
+        matchType: scrims.matchType,
+        map: scrims.map,
+        date: scrims.date,
+        time: scrims.time,
+        status: scrims.status,
+        roomId: scrims.roomId,
+        roomPassword: scrims.roomPassword,
+        youtubeLink: scrims.youtubeLink,
+        spotsRemaining: scrims.spotsRemaining,
+        maxPlayers: scrims.maxPlayers,
+      }).from(scrims).where(eq(scrims.id, scrimId));
+
+      if (!scrim) {
+        return res.status(404).json({ message: "Not found" });
+      }
+      
+      // Check if user is registered for this scrim or is admin
+      const isAdmin = req.user!.role === "admin";
+      
+      if (!isAdmin) {
+        const [registration] = await db.select().from(scrimRegistrations)
+          .where(and(
+            eq(scrimRegistrations.scrimId, scrimId),
+            eq(scrimRegistrations.userId, req.user!.id),
+            eq(scrimRegistrations.paymentStatus, "verified")
+          ));
+        
+        if (!registration) {
+          // Return 404 to prevent enumeration - don't reveal scrim existence
+          return res.status(404).json({ message: "Not found" });
+        }
+      }
+
+      res.json(scrim);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch scrim" });
     }
   });
 

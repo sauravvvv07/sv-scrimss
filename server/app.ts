@@ -24,18 +24,27 @@ export function log(message: string, source = "express") {
 
 export const app = express();
 
+// Trust proxy for rate limiting behind reverse proxies (Render, Cloudflare, etc)
+app.set("trust proxy", 1);
+
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
 }));
 
-const loginLimiter = rateLimit({
+const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: "Too many login attempts, please try again later",
+  message: { message: "Too many attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-app.use("/api/auth/login", loginLimiter);
+// Apply rate limiting to all auth routes (login, signup, registration, admin setup)
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/signup", authLimiter);
+app.use("/api/scrim/register", authLimiter);
+app.use("/api/admin/setup", authLimiter);
 
 declare module 'http' {
   interface IncomingMessage {
