@@ -32,6 +32,13 @@ interface Registration {
     playerId: string;
     mobile: string | null;
   } | null;
+  teamProfile: {
+    members: Array<{
+      ign: string;
+      playerId: string;
+      userId?: number;
+    }> | null;
+  } | null;
 }
 
 export function ScrimsManagement() {
@@ -446,43 +453,99 @@ export function ScrimsManagement() {
                 {registrations.map((reg) => (
                   <div
                     key={reg.id}
-                    className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                    className="p-4 border rounded-lg bg-card space-y-3"
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">
-                          {reg.user?.username || "Unknown"}
-                        </span>
-                        <Badge variant="outline" className="capitalize">
-                          {reg.mode || "solo"}
-                        </Badge>
-                        {reg.teamName && (
-                          <span className="text-sm text-muted-foreground">
-                            ({reg.teamName})
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">
+                            {reg.user?.username || "Unknown"}
                           </span>
-                        )}
+                          <Badge variant="outline" className="capitalize">
+                            {reg.mode || "solo"}
+                          </Badge>
+                          {reg.teamName && (
+                            <span className="text-sm text-muted-foreground">
+                              ({reg.teamName})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <span className="font-mono">{reg.user?.playerId}</span>
+                          {reg.user?.mobile && (
+                            <span className="ml-2">{reg.user.mobile}</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        <span className="font-mono">{reg.user?.playerId}</span>
-                        {reg.user?.mobile && (
-                          <span className="ml-2">{reg.user.mobile}</span>
-                        )}
+                      <div className="text-right">
+                        <div className="text-lg font-bold">
+                          Slot #{reg.slotNumber || "N/A"}
+                        </div>
+                        <Badge
+                          variant={
+                            reg.paymentStatus === "verified"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {reg.paymentStatus}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">
-                        Slot #{reg.slotNumber || "N/A"}
+
+                    {/* Display teammates if available */}
+                    {reg.teamProfile?.members && reg.teamProfile.members.length > 0 && (
+                      <div className="pt-3 border-t space-y-2">
+                        <div className="text-sm font-semibold text-muted-foreground">
+                          Team Members:
+                        </div>
+                        <div className="space-y-2">
+                          {/* Captain */}
+                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                            <Badge variant="secondary" className="text-xs">
+                              Captain
+                            </Badge>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">
+                                {reg.user?.username}
+                              </div>
+                              <div className="text-xs font-mono text-muted-foreground">
+                                ID: {reg.user?.playerId}
+                              </div>
+                            </div>
+                          </div>
+                          {/* Teammates */}
+                          {reg.teamProfile.members.map((member, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-2 p-2 bg-muted/30 rounded"
+                            >
+                              <Badge variant="outline" className="text-xs">
+                                #{idx + 2}
+                              </Badge>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium">
+                                  {member.ign}
+                                </div>
+                                <div className="text-xs font-mono text-muted-foreground">
+                                  ID: {member.playerId}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(member.playerId);
+                                  toast({ title: "Copied!", description: "Player ID copied" });
+                                }}
+                              >
+                                <Copy size={14} />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <Badge
-                        variant={
-                          reg.paymentStatus === "verified"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {reg.paymentStatus}
-                      </Badge>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>

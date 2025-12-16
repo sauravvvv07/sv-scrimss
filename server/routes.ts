@@ -994,9 +994,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           playerId: users.playerId,
           mobile: users.mobile,
         },
+        teamProfile: {
+          members: teamProfiles.members,
+        },
       })
         .from(scrimRegistrations)
         .leftJoin(users, eq(scrimRegistrations.userId, users.id))
+        .leftJoin(teamProfiles, eq(teamProfiles.userId, scrimRegistrations.userId))
         .where(eq(scrimRegistrations.scrimId, scrimId))
         .orderBy(scrimRegistrations.slotNumber);
 
