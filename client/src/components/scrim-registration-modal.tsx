@@ -106,23 +106,35 @@ export function ScrimRegistrationModal({
       return;
     }
 
-    setStep("form");
-  };
-
-  const initializeTeammates = () => {
-    const requiredPlayers = MODE_INFO[mode].players;
+    // Initialize teammates immediately
     const newTeammates: TeamMember[] = [];
-    for (let i = 0; i < requiredPlayers - 1; i++) {
+    for (let i = 0; i < requiredSlots - 1; i++) {
       newTeammates.push({ ign: "", playerId: "" });
     }
     setTeammates(newTeammates);
+
+    setStep("form");
   };
 
-  useEffect(() => {
-    if (step === "form" && teammates.length === 0) {
-      initializeTeammates();
+  // Removed initializeTeammates function and the useEffect that called it
+
+
+
+
+  const isFormValid = (): boolean => {
+    if (!teamName.trim() && mode !== "solo") {
+      return false;
     }
-  }, [step, mode]);
+    for (let i = 0; i < teammates.length; i++) {
+      if (!teammates[i].ign.trim()) {
+        return false;
+      }
+      if (!teammates[i].playerId.trim()) {
+        return false;
+      }
+    }
+    return true;
+  };
 
   const validateForm = (): boolean => {
     if (!teamName.trim() && mode !== "solo") {
@@ -230,10 +242,14 @@ export function ScrimRegistrationModal({
                     let isDisabled = false;
                     let statusText = "";
 
+                    // Global check for spots remaining
+                    const globalSpotsRemaining = parseFloat(scrim.spotsRemaining.toString());
+                    const hasGlobalSpots = globalSpotsRemaining >= requiredSlots;
+
                     if (!slotsStatus) {
                       // Fallback while loading
                       const availableSlots = Math.floor(
-                        parseFloat(scrim.spotsRemaining.toString()) /
+                        globalSpotsRemaining /
                           requiredSlots
                       );
                       isDisabled = availableSlots === 0;
@@ -245,7 +261,10 @@ export function ScrimRegistrationModal({
                           (slotsStatus.soloCount || 0) +
                           (slotsStatus.duoCount || 0);
                         const soloDuoAvailable = Math.max(0, 2 - soloDuoFilled);
-                        isDisabled = soloDuoAvailable === 0;
+                        
+                        // Disable if specific slots are full OR if global capacity is reached
+                        isDisabled = soloDuoAvailable === 0 || !hasGlobalSpots;
+
                         statusText = isDisabled
                           ? "Slots filled"
                           : `${soloDuoAvailable} slot${
@@ -254,11 +273,8 @@ export function ScrimRegistrationModal({
                       }
                       // Squad uses slots 1-98
                       else if (m === "squad") {
-                        const squadSpotsRemaining = parseFloat(
-                          scrim.spotsRemaining.toString()
-                        );
                         const squadSlotsAvailable = Math.floor(
-                          squadSpotsRemaining / 4
+                          globalSpotsRemaining / 4
                         );
                         isDisabled = squadSlotsAvailable === 0;
                         statusText = isDisabled
@@ -466,7 +482,7 @@ export function ScrimRegistrationModal({
                   <Button
                     className="flex-1"
                     onClick={() => setStep("confirm")}
-                    disabled={!validateForm()}
+                    disabled={!isFormValid()}
                   >
                     Continue
                   </Button>
