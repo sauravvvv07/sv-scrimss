@@ -61,17 +61,24 @@ export function ScrimsManagement() {
     queryKey: ["/api/admin/scrims"],
   });
 
-  const { data: registrations, isLoading: loadingRegistrations } = useQuery<
+  const { data: registrations, isLoading: loadingRegistrations, refetch } = useQuery<
     Registration[]
   >({
     queryKey: ["/api/admin/scrims", viewingPlayersScrim?.id, "registrations"],
-    queryFn: () =>
-      apiRequest(
-        "GET",
-        `/api/admin/scrims/${viewingPlayersScrim?.id}/registrations`,
-        {}
-      ),
+    queryFn: async () => {
+      try {
+        const res = await apiRequest(
+          "GET",
+          `/api/admin/scrims/${viewingPlayersScrim?.id}/registrations`
+        );
+        return res;
+      } catch (err) {
+        throw err;
+      }
+    },
     enabled: !!viewingPlayersScrim,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const copyToClipboard = (text: string) => {
@@ -179,7 +186,7 @@ export function ScrimsManagement() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <div className="font-semibold text-lg">
-                              {scrim.matchType}
+                              {scrim.matchType} <span className="text-xs text-muted-foreground">(ID: {scrim.id})</span>
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {scrim.map}
