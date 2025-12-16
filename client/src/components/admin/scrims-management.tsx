@@ -9,6 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   IndianRupee,
   Users,
   Trash2,
@@ -407,156 +413,148 @@ export function ScrimsManagement() {
         </Card>
       )}
 
-      {viewingPlayersScrim && (
-        <Card className="glass-card">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>
-              Registered Players - {viewingPlayersScrim.matchType}
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setViewingPlayersScrim(null)}
-            >
-              Close
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {loadingRegistrations ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16" />
-                ))}
-              </div>
-            ) : registrations && registrations.length > 0 ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center p-3 bg-muted rounded-lg">
-                    <div className="text-2xl font-bold">
-                      {registrations.filter((r) => r.mode === "squad").length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Squads</div>
+      <Dialog open={!!viewingPlayersScrim} onOpenChange={(open) => !open && setViewingPlayersScrim(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Registered Players - {viewingPlayersScrim?.matchType}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingRegistrations ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-16" />
+              ))}
+            </div>
+          ) : registrations && registrations.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {registrations.filter((r) => r.mode === "squad").length}
                   </div>
-                  <div className="text-center p-3 bg-muted rounded-lg">
-                    <div className="text-2xl font-bold">
-                      {registrations.filter((r) => r.mode === "duo").length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Duos</div>
-                  </div>
-                  <div className="text-center p-3 bg-muted rounded-lg">
-                    <div className="text-2xl font-bold">
-                      {registrations.filter((r) => r.mode === "solo").length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Solos</div>
-                  </div>
+                  <div className="text-sm text-muted-foreground">Squads</div>
                 </div>
-                {registrations.map((reg) => (
-                  <div
-                    key={reg.id}
-                    className="p-4 border rounded-lg bg-card space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">
-                            {reg.user?.username || "Unknown"}
-                          </span>
-                          <Badge variant="outline" className="capitalize">
-                            {reg.mode || "solo"}
-                          </Badge>
-                          {reg.teamName && (
-                            <span className="text-sm text-muted-foreground">
-                              ({reg.teamName})
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          <span className="font-mono">{reg.user?.playerId}</span>
-                          {reg.user?.mobile && (
-                            <span className="ml-2">{reg.user.mobile}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold">
-                          Slot #{reg.slotNumber || "N/A"}
-                        </div>
-                        <Badge
-                          variant={
-                            reg.paymentStatus === "verified"
-                              ? "default"
-                              : "secondary"
-                          }
-                        >
-                          {reg.paymentStatus}
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {registrations.filter((r) => r.mode === "duo").length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Duos</div>
+                </div>
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {registrations.filter((r) => r.mode === "solo").length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Solos</div>
+                </div>
+              </div>
+              {registrations.map((reg) => (
+                <div
+                  key={reg.id}
+                  className="p-4 border rounded-lg bg-card space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">
+                          {reg.user?.username || "Unknown"}
+                        </span>
+                        <Badge variant="outline" className="capitalize">
+                          {reg.mode || "solo"}
                         </Badge>
+                        {reg.teamName && (
+                          <span className="text-sm text-muted-foreground">
+                            ({reg.teamName})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <span className="font-mono">{reg.user?.playerId}</span>
+                        {reg.user?.mobile && (
+                          <span className="ml-2">{reg.user.mobile}</span>
+                        )}
                       </div>
                     </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold">
+                        Slot #{reg.slotNumber || "N/A"}
+                      </div>
+                      <Badge
+                        variant={
+                          reg.paymentStatus === "verified"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {reg.paymentStatus}
+                      </Badge>
+                    </div>
+                  </div>
 
-                    {/* Display teammates if available */}
-                    {reg.teamProfile?.members && reg.teamProfile.members.length > 0 && (
-                      <div className="pt-3 border-t space-y-2">
-                        <div className="text-sm font-semibold text-muted-foreground">
-                          Team Members:
+                  {/* Display teammates if available */}
+                  {reg.teamProfile?.members && reg.teamProfile.members.length > 0 && (
+                    <div className="pt-3 border-t space-y-2">
+                      <div className="text-sm font-semibold text-muted-foreground">
+                        Team Members:
+                      </div>
+                      <div className="space-y-2">
+                        {/* Captain */}
+                        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                          <Badge variant="secondary" className="text-xs">
+                            Captain
+                          </Badge>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">
+                              {reg.user?.username}
+                            </div>
+                            <div className="text-xs font-mono text-muted-foreground">
+                              ID: {reg.user?.playerId}
+                            </div>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          {/* Captain */}
-                          <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-                            <Badge variant="secondary" className="text-xs">
-                              Captain
+                        {/* Teammates */}
+                        {reg.teamProfile.members.map((member, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 p-2 bg-muted/30 rounded"
+                          >
+                            <Badge variant="outline" className="text-xs">
+                              #{idx + 2}
                             </Badge>
                             <div className="flex-1">
                               <div className="text-sm font-medium">
-                                {reg.user?.username}
+                                {member.ign}
                               </div>
                               <div className="text-xs font-mono text-muted-foreground">
-                                ID: {reg.user?.playerId}
+                                ID: {member.playerId}
                               </div>
                             </div>
-                          </div>
-                          {/* Teammates */}
-                          {reg.teamProfile.members.map((member, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-2 p-2 bg-muted/30 rounded"
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(member.playerId);
+                                toast({ title: "Copied!", description: "Player ID copied" });
+                              }}
                             >
-                              <Badge variant="outline" className="text-xs">
-                                #{idx + 2}
-                              </Badge>
-                              <div className="flex-1">
-                                <div className="text-sm font-medium">
-                                  {member.ign}
-                                </div>
-                                <div className="text-xs font-mono text-muted-foreground">
-                                  ID: {member.playerId}
-                                </div>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(member.playerId);
-                                  toast({ title: "Copied!", description: "Player ID copied" });
-                                }}
-                              >
-                                <Copy size={14} />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+                              <Copy size={14} />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No players registered yet
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No players registered yet
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
