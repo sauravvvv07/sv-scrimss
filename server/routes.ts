@@ -6,13 +6,13 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import { WebSocketServer, WebSocket } from "ws";
 import { db } from "./db";
-import { 
-  users, 
-  scrims, 
-  scrimRegistrations, 
-  transactions, 
-  teammatesPosts, 
-  chatMessages, 
+import {
+  users,
+  scrims,
+  scrimRegistrations,
+  transactions,
+  teammatesPosts,
+  chatMessages,
   leaderboardEntries,
   teamProfiles,
   scrimResults,
@@ -81,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/signup", async (req, res) => {
     try {
       const data = insertUserSchema.parse(req.body) as any;
-      
+
       const hashedPassword = await bcrypt.hash(data.password, 10);
       const playerId = nanoid(8).toUpperCase();
 
@@ -112,11 +112,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const [existingAdmin] = await db.select().from(users).where(
           and(eq(users.email, ADMIN_EMAIL), eq(users.role, "admin"))
         );
-        
+
         if (existingAdmin) {
           // Use constant-time comparison for admin password
           const isValidAdminPassword = await bcrypt.compare(data.password, existingAdmin.password);
-          
+
           if (isValidAdminPassword) {
             const token = jwt.sign({ userId: existingAdmin.id }, JWT_SECRET);
             const { password, ...adminWithoutPassword } = existingAdmin;
@@ -201,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment/create-order", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const { amount, scrimId } = req.body;
-      
+
       const [scrim] = await db.select().from(scrims).where(eq(scrims.id, parseInt(scrimId)));
       if (!scrim) {
         return res.status(400).json({ message: "Scrim not found" });
@@ -288,133 +288,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/scrim/register", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const { scrimId, mode, teamName, teamMembers } = req.body;
-      const [scrim] = await db.select().from(scrims).where(eq(scrims.id, parseInt(scrimId)));
 
-      if (!scrim || scrim.spotsRemaining <= 0) {
-        return res.status(400).json({ message: "Scrim full or not found" });
-      }
+      // Use database transaction to prevent race conditions
+      const result = await db.transaction(async (tx) => {
+        // Lock and fetch scrim with FOR UPDATE to prevent concurrent modifications
+        const [scrim] = await tx.select().from(scrims)
+          .where(eq(scrims.id, parseInt(scrimId)))
+          .for('update');
 
-      const existing = await db.select().from(scrimRegistrations)
-        .where(and(
-          eq(scrimRegistrations.scrimId, parseInt(scrimId)),
-          eq(scrimRegistrations.userId, req.user!.id)
-        ));
-
-      if (existing.length > 0) {
-        return res.status(400).json({ message: "Already registered for this scrim" });
-      }
-
-      const entryFeeAmount = parseFloat(scrim.entryFee.toString());
-      const userBalance = parseFloat(req.user!.walletBalance.toString());
-
-      // Check if user has enough wallet balance
-      if (userBalance < entryFeeAmount) {
-        return res.status(400).json({ 
-          message: "Insufficient wallet balance",
-          required: entryFeeAmount,
-          available: userBalance,
-          shortfall: entryFeeAmount - userBalance
-        });
-      }
-
-      // Deduct from wallet instantly
-      await db.update(users)
-        .set({ walletBalance: sql`${users.walletBalance} - ${entryFeeAmount}` })
-        .where(eq(users.id, req.user!.id));
-
-      // Create transaction record
-      const [transaction] = await db.insert(transactions).values({
-        userId: req.user!.id,
-        type: "entryFee",
-        amount: entryFeeAmount.toString(),
-        teamName: teamName || null,
-        scrimId: parseInt(scrimId),
-        paymentStatus: "verified",
-      }).returning();
-
-      // Assign slot number - Sequential, not random
-      let slotNumber: number;
-      
-      if (mode === "squad") {
-        // Squad uses slots 1-98
-        const existingSlots = await db.select().from(scrimRegistrations)
-          .where(and(
-            eq(scrimRegistrations.scrimId, parseInt(scrimId)),
-            eq(scrimRegistrations.mode, "squad")
-          ));
-        
-        const takenSlots = existingSlots.map(r => r.slotNumber).filter(s => s !== null);
-        let slot = 1;
-        while (takenSlots.includes(slot) && slot <= 98) {
-          slot += 4; // Squad slots: 1, 5, 9, 13, ... 97
+        if (!scrim || scrim.spotsRemaining <= 0) {
+          throw new Error("Scrim full or not found");
         }
-        slotNumber = slot <= 98 ? slot : 97;
-      } else {
-        // Solo/Duo use slots 99-100
-        const existingSoloDuoSlots = await db.select().from(scrimRegistrations)
+
+        // Check if already registered
+        const existing = await tx.select().from(scrimRegistrations)
           .where(and(
             eq(scrimRegistrations.scrimId, parseInt(scrimId)),
-            sql`${scrimRegistrations.mode} IN ('solo', 'duo')`
+            eq(scrimRegistrations.userId, req.user!.id)
           ));
-        
-        const takenSlots = existingSoloDuoSlots.map(r => r.slotNumber).filter(s => s !== null);
-        slotNumber = takenSlots.includes(99) ? 100 : 99;
-      }
 
-      const [registration] = await db.insert(scrimRegistrations).values({
-        scrimId: parseInt(scrimId),
-        userId: req.user!.id,
-        mode,
-        teamName: teamName || null,
-        slotNumber,
-        paymentStatus: "verified",
-      }).returning();
+        if (existing.length > 0) {
+          throw new Error("Already registered for this scrim");
+        }
 
-      // Determine team size
-      const teamSizes = { solo: 1, duo: 2, squad: 4 };
-      const teamSize = teamSizes[mode as keyof typeof teamSizes] || 1;
+        // Lock user row and check balance
+        const [user] = await tx.select().from(users)
+          .where(eq(users.id, req.user!.id))
+          .for('update');
 
-      // Update scrim spots
-      await db.update(scrims)
-        .set({ 
-          spotsRemaining: sql`${scrims.spotsRemaining} - ${teamSize}`,
-          status: sql`CASE WHEN ${scrims.spotsRemaining} - ${teamSize} <= 0 THEN 'full' ELSE ${scrims.status} END`
-        })
-        .where(eq(scrims.id, parseInt(scrimId)));
+        const entryFeeAmount = parseFloat(scrim.entryFee.toString());
+        const userBalance = parseFloat(user.walletBalance.toString());
 
-      // Save team profile for next time
-      if (teamMembers && teamMembers.length > 0) {
-        const [existingTeam] = await db.select().from(teamProfiles)
-          .where(eq(teamProfiles.userId, req.user!.id));
+        if (userBalance < entryFeeAmount) {
+          throw new Error(JSON.stringify({
+            message: "Insufficient wallet balance",
+            required: entryFeeAmount,
+            available: userBalance,
+            shortfall: entryFeeAmount - userBalance
+          }));
+        }
 
-        if (existingTeam) {
-          await db.update(teamProfiles)
-            .set({
-              teamName: teamName || existingTeam.teamName,
+        // Deduct from wallet
+        await tx.update(users)
+          .set({ walletBalance: sql`${users.walletBalance} - ${entryFeeAmount}` })
+          .where(eq(users.id, req.user!.id));
+
+        // Create transaction record
+        const [transaction] = await tx.insert(transactions).values({
+          userId: req.user!.id,
+          type: "entryFee",
+          amount: entryFeeAmount.toString(),
+          teamName: teamName || null,
+          scrimId: parseInt(scrimId),
+          paymentStatus: "verified",
+        }).returning();
+
+        // Assign slot number - Sequential, not random
+        let slotNumber: number;
+
+        if (mode === "squad") {
+          // Squad uses slots 1-98
+          const existingSlots = await tx.select().from(scrimRegistrations)
+            .where(and(
+              eq(scrimRegistrations.scrimId, parseInt(scrimId)),
+              eq(scrimRegistrations.mode, "squad")
+            ));
+
+          const takenSlots = existingSlots.map(r => r.slotNumber).filter(s => s !== null);
+          let slot = 1;
+          while (takenSlots.includes(slot) && slot <= 98) {
+            slot += 4; // Squad slots: 1, 5, 9, 13, ... 97
+          }
+          slotNumber = slot <= 98 ? slot : 97;
+        } else {
+          // Solo/Duo use slots 99-100
+          const existingSoloDuoSlots = await tx.select().from(scrimRegistrations)
+            .where(and(
+              eq(scrimRegistrations.scrimId, parseInt(scrimId)),
+              sql`${scrimRegistrations.mode} IN ('solo', 'duo')`
+            ));
+
+          const takenSlots = existingSoloDuoSlots.map(r => r.slotNumber).filter(s => s !== null);
+          slotNumber = takenSlots.includes(99) ? 100 : 99;
+        }
+
+        const [registration] = await tx.insert(scrimRegistrations).values({
+          scrimId: parseInt(scrimId),
+          userId: req.user!.id,
+          mode,
+          teamName: teamName || null,
+          slotNumber,
+          paymentStatus: "verified",
+        }).returning();
+
+        // Determine team size
+        const teamSizes = { solo: 1, duo: 2, squad: 4 };
+        const teamSize = teamSizes[mode as keyof typeof teamSizes] || 1;
+
+        // Update scrim spots
+        await tx.update(scrims)
+          .set({
+            spotsRemaining: sql`${scrims.spotsRemaining} - ${teamSize}`,
+            status: sql`CASE WHEN ${scrims.spotsRemaining} - ${teamSize} <= 0 THEN 'full' ELSE ${scrims.status} END`
+          })
+          .where(eq(scrims.id, parseInt(scrimId)));
+
+        // Save team profile for next time
+        if (teamMembers && teamMembers.length > 0) {
+          const [existingTeam] = await tx.select().from(teamProfiles)
+            .where(eq(teamProfiles.userId, req.user!.id));
+
+          if (existingTeam) {
+            await tx.update(teamProfiles)
+              .set({
+                teamName: teamName || existingTeam.teamName,
+                mode,
+                members: teamMembers,
+                updatedAt: new Date(),
+              })
+              .where(eq(teamProfiles.userId, req.user!.id));
+          } else {
+            await tx.insert(teamProfiles).values({
+              userId: req.user!.id,
+              teamName: teamName || null,
               mode,
               members: teamMembers,
-              updatedAt: new Date(),
-            })
-            .where(eq(teamProfiles.userId, req.user!.id));
-        } else {
-          await db.insert(teamProfiles).values({
-            userId: req.user!.id,
-            teamName: teamName || null,
-            mode,
-            members: teamMembers,
-          });
+            });
+          }
         }
-      }
 
-      res.json({ 
+        return {
+          registration,
+          transaction,
+          slotNumber,
+          newBalance: userBalance - entryFeeAmount,
+        };
+      });
+
+      res.json({
         message: "Registration successful! Entry fee deducted from wallet",
-        registration,
-        transaction,
-        slotNumber,
+        registration: result.registration,
+        transaction: result.transaction,
+        slotNumber: result.slotNumber,
         userName: req.user!.username,
-        newBalance: parseFloat(req.user!.walletBalance.toString()) - entryFeeAmount,
+        newBalance: result.newBalance,
       });
     } catch (error: any) {
+      // Handle JSON error messages from transaction
+      if (error.message?.startsWith('{')) {
+        try {
+          const errorData = JSON.parse(error.message);
+          return res.status(400).json(errorData);
+        } catch {
+          // Fall through to default error handling
+        }
+      }
       res.status(500).json({ message: error.message || "Registration failed" });
     }
   });
@@ -497,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const [profile] = await db.select().from(teamProfiles)
         .where(eq(teamProfiles.userId, req.user!.id));
-      
+
       res.json(profile || null);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to fetch team profile" });
@@ -507,26 +535,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/scrim/:scrimId/slots-status", async (req, res) => {
     try {
       const scrimId = parseInt(req.params.scrimId);
-      
+
       // Count registrations by mode for this scrim
       const soloRegistrations = await db.select().from(scrimRegistrations)
         .where(and(
           eq(scrimRegistrations.scrimId, scrimId),
           eq(scrimRegistrations.mode, "solo")
         ));
-      
+
       const duoRegistrations = await db.select().from(scrimRegistrations)
         .where(and(
           eq(scrimRegistrations.scrimId, scrimId),
           eq(scrimRegistrations.mode, "duo")
         ));
-      
+
       const squadRegistrations = await db.select().from(scrimRegistrations)
         .where(and(
           eq(scrimRegistrations.scrimId, scrimId),
           eq(scrimRegistrations.mode, "squad")
         ));
-      
+
       res.json({
         soloCount: soloRegistrations.length,
         duoCount: duoRegistrations.length,
@@ -951,7 +979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/scrims/:id/registrations", authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
     try {
       const scrimId = parseInt(req.params.id);
-      
+
       const registrations = await db.select({
         id: scrimRegistrations.id,
         mode: scrimRegistrations.mode,
@@ -983,7 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/scrim/:id/live", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const scrimId = parseInt(req.params.id);
-      
+
       // First check if scrim exists
       const [scrim] = await db.select({
         id: scrims.id,
@@ -1002,10 +1030,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!scrim) {
         return res.status(404).json({ message: "Not found" });
       }
-      
+
       // Check if user is registered for this scrim or is admin
       const isAdmin = req.user!.role === "admin";
-      
+
       if (!isAdmin) {
         const [registration] = await db.select().from(scrimRegistrations)
           .where(and(
@@ -1013,7 +1041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eq(scrimRegistrations.userId, req.user!.id),
             eq(scrimRegistrations.paymentStatus, "verified")
           ));
-        
+
         if (!registration) {
           // Return 404 to prevent enumeration - don't reveal scrim existence
           return res.status(404).json({ message: "Not found" });
